@@ -30,7 +30,7 @@ google-services.json
 *.hprof
 
 # Local build paths
-#.pio/
-#.reference/
+.pio/
+.reference/
 .vscode/
 .temp/
