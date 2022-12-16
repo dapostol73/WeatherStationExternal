@@ -21,17 +21,10 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
-#define DHTPIN 14     // Digital pin connected to the DHT sensor 
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 // Pin 15 can work but DHT must be disconnected during program upload.
 
 // Uncomment the type of sensor in use:
-#define DHTTYPE    DHT22     // DHT 22 (AM2302)
-
-#define BMP_SCK  (13)
-#define BMP_MISO (12)
-#define BMP_MOSI (11)
-#define BMP_CS   (10)
 
 /***************************
  * WIFI Settings
@@ -39,18 +32,21 @@
 const char* WIFI_SSID = "a12studiosOG";
 const char* WIFI_PWD = "apollo1973";
 
-/***************************
- * Begin DHT11 Settings
- **************************/
+
 WiFiClient client;
 const char *host = "api.thingspeak.com";                  //IP address of the thingspeak server
 const char *api_key ="EMCNAORN3ZXKCFW1";                  //Your own thingspeak api_key
 const int httpPort = 80;
-#define pin 14       // ESP8266-12E  D5 read Temperature and Humidity data
+
+/***************************
+ * Begin DHT11 Settings
+ **************************/
+#define DHTTYP DHT22 // DHT 22 (AM2302)
+#define DHTPIN 14    // Digital pin connected to the DHT sensor 
+DHT_Unified dht(DHTPIN, DHTTYP);
 int temp = 0; //temperature
 int humi = 0; //humidity
 void readTemperatureHumidity();
-void readTemperatureHumidityNew();
 void uploadTemperatureHumidity();
 long readTime = 0; 
 long uploadTime = 0; 
@@ -58,14 +54,15 @@ long uploadTime = 0;
 /***************************
  * Begin Atmosphere and Light Sensor Settings
  **************************/
+
 void readLight();
 void readAtmosphere();
+#define LGTPIN 12    // Digital pin connected to the Light sensor
 Adafruit_BMP280 bmp;
-DHT_Unified dht(DHTPIN, DHTTYPE);
-const int Light_ADDR = 0b0100011;   // address:0x23
-const int Atom_ADDR = 0b1110111;  // address:0x77
+const int I2C_ATOM_ADDRESS = 0x76;  // address:0x76
 int tempLight = 0;
 int tempAtom = 0;
+int tempAlit = 0;
 
 /***************************
  * Begin Settings
@@ -78,15 +75,11 @@ const int UPDATE_INTERVAL_SECS = 20 * 60; // Update every 20 minutes
 // Display Settings
 const int I2C_DISPLAY_ADDRESS = 0x3c;
 #if defined(ESP8266)
-//const int SDA_PIN = D1;
-//const int SDC_PIN = D2;
-
-const int SDA_PIN = D3;
-const int SDC_PIN = D4;
+const int SDA_PIN = D2;
+const int SDC_PIN = D1;
 #else
 //const int SDA_PIN = GPIO5;
 //const int SDC_PIN = GPIO4 
-
 const int SDA_PIN = GPIO0;
 const int SDC_PIN = GPIO2 
 #endif
@@ -159,27 +152,21 @@ OverlayCallback overlays[] = { drawHeaderOverlay };
 int numberOfOverlays = 1;
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
-  Wire.begin(0,2);
-  
-  Wire.beginTransmission(Atom_ADDR);
   //initialize Atmosphere sensor
-  if (!bmp.begin()) {
-    Serial.println("Could not find BMP180 or BMP085 sensor at 0x77");
-  }else{
-    Serial.println("Find BMP180 or BMP085 sensor at 0x77");
+  if (!bmp.begin(I2C_ATOM_ADDRESS)) {
+    Serial.println("Could not find BMP180 or BMP085 sensor at 0x76");
+  }
+  else {
+    Serial.println("Fond BMP280 sensor at 0x76");
   }
 
   // initlialize Humidity 
   dht.begin();
 
-  Wire.endTransmission();
-
-  //initialize light sensor
-  Wire.beginTransmission(Light_ADDR);
-  Wire.write(0b00000001);
-  Wire.endTransmission();
+  // initlialize LightSensor 
+  pinMode(LGTPIN, INPUT);
 
   // initialize dispaly
   display.init();
@@ -227,14 +214,13 @@ void setup() {
   updateData(&display);
   while (!client.connect(host, httpPort)) {
     Serial.println("Connection Failed");
-  }
-  
+  }  
 }
 
 void loop() {  
   //Read Temperature Humidity every 5 seconds
   if(millis() - readTime > 5000){
-    readTemperatureHumidityNew();
+    readTemperatureHumidity();
     readLight();
     readAtmosphere();
     readTime = millis();
@@ -372,7 +358,7 @@ void setReadyForWeatherUpdate() {
   readyForWeatherUpdate = true;
 }
 
-void readTemperatureHumidityNew(){
+void readTemperatureHumidity(){
   sensors_event_t event;
   dht.temperature().getEvent(&event);
   if (isnan(event.temperature)) {
@@ -391,98 +377,25 @@ void readTemperatureHumidityNew(){
   }
 }
 
-//read temperature humidity data
-void readTemperatureHumidity(){
-  // int j;
-  unsigned int loopCnt;
-  int chr[40] = {0};
-  unsigned long time1;
-bgn:
-  delay(2000);
-  //Set interface mode 2 to: output
-  //Output low level 20ms (>18ms)
-  //Output high level 40μs
-  pinMode(pin, OUTPUT);
-  digitalWrite(pin, LOW);
-  delay(20);
-  digitalWrite(pin, HIGH);
-  delayMicroseconds(40);
-  digitalWrite(pin, LOW);
-  //Set interface mode 2: input
-  pinMode(pin, INPUT);
-  //High level response signal
-  loopCnt = 10000;
-  while (digitalRead(pin) != HIGH){
-    if (loopCnt-- == 0){
-      //If don't return to high level for a long time, output a prompt and start over
-      Serial.println("HIGH");
-      goto bgn;
-    }
-  }
-  //Low level response signal
-  loopCnt = 30000;
-  while (digitalRead(pin) != LOW){
-    if (loopCnt-- == 0){
-      //If don't return low for a long time, output a prompt and start over
-      Serial.println("LOW");
-      goto bgn;
-    }
-  }
-  //Start reading the value of bit1-40
-  for (int i = 0; i < 40; i++){
-    while (digitalRead(pin) == LOW){}
-    //When the high level occurs, write down the time "time"
-    time1 = micros();
-    while (digitalRead(pin) == HIGH){}
-    //When there is a low level, write down the time and subtract the time just saved
-    //If the value obtained is greater than 50μs, it is ‘1’, otherwise it is ‘0’
-    //And save it in an array
-    if (micros() - time1  > 50){
-      chr[i] = 1;
-    } else {
-      chr[i] = 0;
-    }
-  }
-
-  //Humidity, 8-bit bit, converted to a value
-  humi = chr[0] * 128 + chr[1] * 64 + chr[2] * 32 + chr[3] * 16 + chr[4] * 8 + chr[5] * 4 + chr[6] * 2 + chr[7];
-  //Temperature, 8-bit bit, converted to a value
-  temp = chr[16] * 128 + chr[17] * 64 + chr[18] * 32 + chr[19] * 16 + chr[20] * 8 + chr[21] * 4 + chr[22] * 2 + chr[23];
-
-    Serial.print("temp:");
-    Serial.print(temp);
-    Serial.print("    humi:");
-    Serial.println(humi);
- 
-}
-
 void readLight(){
-  // reset
-  Wire.beginTransmission(Light_ADDR);
-  Wire.write(0b00000111);
-  Wire.endTransmission();
- 
-  Wire.beginTransmission(Light_ADDR);
-  Wire.write(0b00100000);
-  Wire.endTransmission();
-  // typical read delay 120ms
-  delay(120);
-  Wire.requestFrom(Light_ADDR, 2); // 2byte every time
-  for (tempLight = 0; Wire.available() >= 1; ) {
-    char c = Wire.read();
-    tempLight = (tempLight << 8) + (c & 0xFF);
+  if (digitalRead(LGTPIN) == LOW){
+    tempLight = 1;
   }
-  tempLight = tempLight / 1.2;
-  Serial.print("light: ");
-  Serial.println(tempLight);
+  else {
+    tempLight = 0;
+  }
 }
 
 
 void readAtmosphere(){
-  tempAtom = bmp.readPressure();
+  tempAtom = bmp.readPressure()/100;
+  tempAlit = bmp.readAltitude(currentWeather.pressure);
   Serial.print("Pressure = ");
   Serial.print(tempAtom);
-  Serial.println(" Pascal");
+  Serial.println(" hecto Pascals");
+  Serial.print("Altitude = ");
+  Serial.print(tempAlit);
+  Serial.println(" Meters");
 }
 
 //upload temperature humidity data to thinkspak.com
@@ -492,7 +405,7 @@ void uploadTemperatureHumidity(){
     return;
   }
   // Three values(field1 field2 field3 field4) have been set in thingspeak.com 
-  client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+temp+"&field2="+humi + "&field3="+tempLight+"&field4="+tempAtom+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+  client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+temp+"&field2="+humi+"&field3="+tempLight+"&field4="+tempAtom+"&field5="+tempAlit+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
   while(client.available()){
     String line = client.readStringUntil('\r');
     Serial.print(line);
