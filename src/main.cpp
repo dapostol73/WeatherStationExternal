@@ -44,8 +44,8 @@ const int httpPort = 80;
 #define DHTTYP DHT22 // DHT 22 (AM2302)
 #define DHTPIN 14    // Digital pin connected to the DHT sensor 
 DHT_Unified dht(DHTPIN, DHTTYP);
-int temp = 0; //temperature
-int humi = 0; //humidity
+float tempTemp = 0.0; //temperature
+float tempHumi = 0.0; //humidity
 void readTemperatureHumidity();
 void uploadTemperatureHumidity();
 long readTime = 0; 
@@ -60,9 +60,9 @@ void readAtmosphere();
 #define LGTPIN 12    // Digital pin connected to the Light sensor
 Adafruit_BMP280 bmp;
 const int I2C_ATOM_ADDRESS = 0x76;  // address:0x76
-int tempLight = 0;
-int tempAtom = 0;
-int tempAlit = 0;
+float tempLight = 0.0;
+float tempAtom = 0.0;
+float tempAlit = 0.0;
 
 /***************************
  * Begin Settings
@@ -353,6 +353,12 @@ void drawHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state) {
   display->drawHorizontalLine(0, 52, 128);
 }
 
+float roundUpDecimal(float value, int decimals = 1) {
+  float multiplier = powf(10.0, decimals);
+  value = roundf(value * multiplier) / multiplier;
+  return value;
+}
+
 void setReadyForWeatherUpdate() {
   Serial.println("Setting readyForUpdate to true");
   readyForWeatherUpdate = true;
@@ -365,7 +371,7 @@ void readTemperatureHumidity(){
     Serial.println(F("Error reading temperature!"));
   }
   else {
-    temp = event.temperature;
+    tempTemp = roundUpDecimal(event.temperature);
   }
   
   dht.humidity().getEvent(&event);
@@ -373,29 +379,23 @@ void readTemperatureHumidity(){
     Serial.println(F("Error reading humidity!"));
   }
   else {
-    humi = event.relative_humidity;
+    tempHumi = roundUpDecimal(event.relative_humidity);
   }
 }
 
-void readLight(){
+void readLight() {
   if (digitalRead(LGTPIN) == LOW){
-    tempLight = 1;
+    tempLight = 1.0;
   }
   else {
-    tempLight = 0;
+    tempLight = 0.0;
   }
 }
 
 
 void readAtmosphere(){
-  tempAtom = bmp.readPressure()/100;
-  tempAlit = bmp.readAltitude(currentWeather.pressure);
-  Serial.print("Pressure = ");
-  Serial.print(tempAtom);
-  Serial.println(" hecto Pascals");
-  Serial.print("Altitude = ");
-  Serial.print(tempAlit);
-  Serial.println(" Meters");
+  tempAtom = roundUpDecimal(bmp.readPressure()/100);
+  tempAlit = roundUpDecimal(bmp.readAltitude(currentWeather.pressure));
 }
 
 //upload temperature humidity data to thinkspak.com
@@ -405,7 +405,7 @@ void uploadTemperatureHumidity(){
     return;
   }
   // Three values(field1 field2 field3 field4) have been set in thingspeak.com 
-  client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+temp+"&field2="+humi+"&field3="+tempLight+"&field4="+tempAtom+"&field5="+tempAlit+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+  client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+tempTemp+"&field2="+tempHumi+"&field3="+tempLight+"&field4="+tempAtom+"&field5="+tempAlit+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
   while(client.available()){
     String line = client.readStringUntil('\r');
     Serial.print(line);
