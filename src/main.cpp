@@ -20,6 +20,7 @@
 #include <Adafruit_BMP280.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include <BH1750FVI.h>
 
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 // Pin 15 can work but DHT must be disconnected during program upload.
@@ -43,24 +44,24 @@ const int httpPort = 80;
  **************************/
 #define DHTTYP DHT22 // DHT 22 (AM2302)
 #define DHTPIN 14    // Digital pin connected to the DHT sensor 
-DHT_Unified dht(DHTPIN, DHTTYP);
 float tempTemp = 0.0; //temperature
 float tempHumi = 0.0; //humidity
 void readTemperatureHumidity();
-void uploadTemperatureHumidity();
+void uploadSensorData();
 long readTime = 0; 
 long uploadTime = 0; 
 
 /***************************
- * Begin Atmosphere and Light Sensor Settings
+ * Begin Light Sensor Settings
  **************************/
-
 void readLight();
-void readAtmosphere();
-#define LGTPIN 12    // Digital pin connected to the Light sensor
-Adafruit_BMP280 bmp;
-const int I2C_ATOM_ADDRESS = 0x76;  // address:0x76
 float tempLight = 0.0;
+
+/***************************
+ * Begin Atmosphere Sensor Settings
+ **************************/
+void readAtmosphere();
+const int I2C_ATOM_ADDRESS = 0x76;  // address:0x76
 float tempAtom = 0.0;
 float tempAlit = 0.0;
 
@@ -71,17 +72,19 @@ float tempAlit = 0.0;
 #define DST_MN          0      // use 60mn for summer time in some countries
 
 // Setup
+const int SENSOR_INTERVAL_SECS = 15; // Sensor query every 15 seconds
+const int UPLOAD_INTERVAL_SECS = 5 * 60; // Upload every 5 minutes
 const int UPDATE_INTERVAL_SECS = 20 * 60; // Update every 20 minutes
 // Display Settings
 const int I2C_DISPLAY_ADDRESS = 0x3c;
 #if defined(ESP8266)
 const int SDA_PIN = D2;
-const int SDC_PIN = D1;
+const int SCL_PIN = D1;
 #else
 //const int SDA_PIN = GPIO5;
-//const int SDC_PIN = GPIO4 
+//const int SCL_PIN = GPIO4 
 const int SDA_PIN = GPIO0;
-const int SDC_PIN = GPIO2 
+const int SCL_PIN = GPIO2 
 #endif
 
 
@@ -112,9 +115,14 @@ const String MONTH_NAMES[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "
 /***************************
  * End Settings
  **************************/
- // Initialize the oled display for address 0x3c
- SSD1306Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SDC_PIN);
- OLEDDisplayUi   ui( &display );
+// Initialize the sensors
+DHT_Unified dht22(DHTPIN, DHTTYP);
+BH1750FVI bh1750(BH1750_DEFAULT_I2CADDR, BH1750_CONTINUOUS_HIGH_RES_MODE, BH1750_SENSITIVITY_DEFAULT, BH1750_ACCURACY_DEFAULT);
+Adafruit_BMP280 bmp280;
+
+// Initialize the oled display for address 0x3c
+SSD1306Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN);
+OLEDDisplayUi   ui( &display );
 
 OpenWeatherMapCurrentData currentWeather;
 OpenWeatherMapCurrent currentWeatherClient;
@@ -155,18 +163,24 @@ void setup() {
   Serial.begin(9600);
 
   //initialize Atmosphere sensor
-  if (!bmp.begin(I2C_ATOM_ADDRESS)) {
-    Serial.println("Could not find BMP180 or BMP085 sensor at 0x76");
+  if (!bmp280.begin(I2C_ATOM_ADDRESS)) {
+    Serial.println("Could not find BMP280 sensor at 0x76");
   }
   else {
     Serial.println("Fond BMP280 sensor at 0x76");
   }
 
-  // initlialize Humidity 
-  dht.begin();
+  //initialize Atmosphere sensor
+  if (!bh1750.begin(SDA_PIN, SCL_PIN)) {
+    Serial.println("Could not find BH1750 sensor at default address");
+  }
+  else {
+    Serial.println("Fond BH1750 sensor at default address");
+  }
 
-  // initlialize LightSensor 
-  pinMode(LGTPIN, INPUT);
+
+  // initlialize Humidity 
+  dht22.begin();
 
   // initialize dispaly
   display.init();
@@ -218,16 +232,17 @@ void setup() {
 }
 
 void loop() {  
-  //Read Temperature Humidity every 5 seconds
-  if(millis() - readTime > 5000){
+  //Read sensor values base on Upload interval seconds
+  if(millis() - readTime > SENSOR_INTERVAL_SECS){
     readTemperatureHumidity();
     readLight();
     readAtmosphere();
     readTime = millis();
   }
-  //Upload Temperature Humidity every 60 seconds
-  if(millis() - uploadTime > 60000){
-    uploadTemperatureHumidity();
+
+  //Upload Sensor values base on Upload interval seconds
+  if(millis() - uploadTime > UPLOAD_INTERVAL_SECS){
+    uploadSensorData();
     uploadTime = millis();
   }
   
@@ -366,7 +381,7 @@ void setReadyForWeatherUpdate() {
 
 void readTemperatureHumidity(){
   sensors_event_t event;
-  dht.temperature().getEvent(&event);
+  dht22.temperature().getEvent(&event);
   if (isnan(event.temperature)) {
     Serial.println(F("Error reading temperature!"));
   }
@@ -374,7 +389,7 @@ void readTemperatureHumidity(){
     tempTemp = roundUpDecimal(event.temperature);
   }
   
-  dht.humidity().getEvent(&event);
+  dht22.humidity().getEvent(&event);
   if (isnan(event.relative_humidity)) {
     Serial.println(F("Error reading humidity!"));
   }
@@ -384,22 +399,17 @@ void readTemperatureHumidity(){
 }
 
 void readLight() {
-  if (digitalRead(LGTPIN) == LOW){
-    tempLight = 1.0;
-  }
-  else {
-    tempLight = 0.0;
-  }
+  tempLight = roundUpDecimal(bh1750.readLightLevel());
 }
 
 
 void readAtmosphere(){
-  tempAtom = roundUpDecimal(bmp.readPressure()/100);
-  tempAlit = roundUpDecimal(bmp.readAltitude(currentWeather.pressure));
+  tempAtom = roundUpDecimal(bmp280.readPressure()/100);
+  tempAlit = roundUpDecimal(bmp280.readAltitude(currentWeather.pressure));
 }
 
 //upload temperature humidity data to thinkspak.com
-void uploadTemperatureHumidity(){
+void uploadSensorData(){
    if(!client.connect(host, httpPort)){
     Serial.println("connection failed");
     return;
