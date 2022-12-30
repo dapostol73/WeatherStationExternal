@@ -33,7 +33,6 @@
 const char* WIFI_SSID = "a12studiosOG";
 const char* WIFI_PWD = "apollo1973";
 
-
 WiFiClient client;
 const char *host = "api.thingspeak.com";                  //IP address of the thingspeak server
 const char *api_key ="EMCNAORN3ZXKCFW1";                  //Your own thingspeak api_key
