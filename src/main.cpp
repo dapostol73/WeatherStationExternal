@@ -7,6 +7,7 @@
 #include <sys/time.h>                   // struct timeval
 #include <coredecls.h>                  // settimeofday_cb()
 
+#include "WifiInfo.h"
 #include "SSD1306Wire.h"
 #include "OLEDDisplayUi.h"
 #include "Wire.h"
@@ -26,12 +27,6 @@
 // Pin 15 can work but DHT must be disconnected during program upload.
 
 // Uncomment the type of sensor in use:
-
-/***************************
- * WIFI Settings
- **************************/
-const char* WIFI_SSID = "a12studiosOG";
-const char* WIFI_PWD = "apollo1973";
 
 WiFiClient client;
 const char *host = "api.thingspeak.com";                  //IP address of the thingspeak server
@@ -191,7 +186,7 @@ void setup() {
   display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.setContrast(255);
 
-  WiFi.begin(WIFI_SSID, WIFI_PWD);
+  WiFi.begin(NAME_OF_SSID, PASSWORD_OF_SSID);
 
   int counter = 0;
   while (WiFi.status() != WL_CONNECTED) {

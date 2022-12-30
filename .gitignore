@@ -36,4 +36,4 @@ google-services.json
 .temp/
 
 # Wifi settings
-#src/WifiInfo.h
+src/WifiInfo.h
