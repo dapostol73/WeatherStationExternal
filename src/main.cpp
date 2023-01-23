@@ -161,7 +161,7 @@ void setup() {
     Serial.println("Could not find BMP280 sensor at 0x76");
   }
   else {
-    Serial.println("Fond BMP280 sensor at 0x76");
+    Serial.println("Found BMP280 sensor at 0x76");
   }
 
   //initialize Atmosphere sensor
@@ -169,7 +169,7 @@ void setup() {
     Serial.println("Could not find BH1750 sensor at default address");
   }
   else {
-    Serial.println("Fond BH1750 sensor at default address");
+    Serial.println("Fuond BH1750 sensor at default address");
   }
 
 
