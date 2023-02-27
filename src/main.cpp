@@ -66,78 +66,89 @@ BH1750FVI bh1750(BH1750_DEFAULT_I2CADDR, BH1750_CONTINUOUS_HIGH_RES_MODE, BH1750
 void resolveWiFiInfo();
 void blinkLedStatus(int times, int pulse = 500);
 
-void setup() {
-  Serial.begin(115200);
-  delay(2000);
-  pinMode(LED_BUILTIN, OUTPUT);
+void setup()
+{
+	Serial.begin(115200);
+	delay(2000);
+	pinMode(LED_BUILTIN, OUTPUT);
 
-  //initialize Atmosphere sensor
-  if (!bme280.begin(BME280_DEFAULT_I2CADDR)) {
-    Serial.println("Could not find BME280 sensor at 0x76");
-  }
-  else {
-    Serial.println("Found BMP280 sensor at 0x76");
-  }
+	//initialize Atmosphere sensor
+	if (!bme280.begin(BME280_DEFAULT_I2CADDR))
+	{
+		Serial.println("Could not find BME280 sensor at 0x76");
+	}
+	else
+	{
+		Serial.println("Found BMP280 sensor at 0x76");
+	}
 
-  //initialize Atmosphere sensor
-  if (!bh1750.begin(SDA_PIN, SCL_PIN)) {
-    Serial.println("Could not find BH1750 sensor at default address");
-  }
-  else {
-    Serial.println("Fuond BH1750 sensor at default address");
-  }
+	//initialize Atmosphere sensor
+	if (!bh1750.begin(SDA_PIN, SCL_PIN))
+	{
+		Serial.println("Could not find BH1750 sensor at default address");
+	}
+	else
+	{
+		Serial.println("Fuond BH1750 sensor at default address");
+	}
 
-  WiFi.mode(WIFI_STA);
-  resolveWiFiInfo();
-  WiFi.begin(wiFiInfo.SSID, wiFiInfo.Password);
+	WiFi.mode(WIFI_STA);
+	resolveWiFiInfo();
+	WiFi.begin(wiFiInfo.SSID, wiFiInfo.Password);
 
-  int counter = 0;
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    counter++;
-  }
-  
-  Serial.println("");
-  while (!client.connect(host, httpPort)) {
-    Serial.println("Connection Failed");
-  }
+	int counter = 0;
+	while (WiFi.status() != WL_CONNECTED)
+	{
+		delay(500);
+		Serial.print(".");
+		counter++;
+	}
 
-  delay(2000);
+	Serial.println("");
+	while (!client.connect(host, httpPort))
+	{
+		Serial.println("Connection Failed");
+	}
+
+	delay(2000);
 }
 
 void loop() {  
-  //Read sensor values base on Upload interval seconds
-  if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS) {
-    blinkLedStatus(2);
-    readTemperature();
-    readHumidity();
-    readAtmosphere();
-    readLight();
-    readTime = millis();
-  }
+	//Read sensor values base on Upload interval seconds
+	if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS)
+	{
+		blinkLedStatus(2);
+		readTemperature();
+		readHumidity();
+		readAtmosphere();
+		readLight();
+		readTime = millis();
+	}
 
-  //Upload Sensor values base on Upload interval seconds
-  if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS) {
-    blinkLedStatus(4, 250);
-    uploadSensorData();
-    uploadTime = millis();
-  }
+	//Upload Sensor values base on Upload interval seconds
+	if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS)
+	{
+		blinkLedStatus(4, 250);
+		uploadSensorData();
+		uploadTime = millis();
+	}
 }
 
-void blinkLedStatus(int times, int pulse) {
-  for (int i = 0; i < times; i++) {
-      digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on by making the voltage LOW
-      delay(pulse);            // Wait for a second
-      digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
-      delay(pulse);            // Wait for two seconds
-  }
+void blinkLedStatus(int times, int pulse)
+{
+	for (int i = 0; i < times; i++)
+	{
+		digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on by making the voltage LOW
+		delay(pulse);            // Wait for a second
+		digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
+		delay(pulse);            // Wait for two seconds
+	}
 }
 
 void resolveWiFiInfo()
 {
 	int8_t numNetworks = WiFi.scanNetworks();
-  Serial.println("Number of networks found: " + String(numNetworks));
+	Serial.println("Number of networks found: " + String(numNetworks));
 
 	for (uint8_t i=0; i<numNetworks; i++)
 	{
@@ -145,7 +156,7 @@ void resolveWiFiInfo()
 		Serial.println(WiFi.SSID(i) + " (" + String(WiFi.RSSI(i)) + ")");
 		for (uint8_t j=0; j < WiFiConnectionsCount; j++)
 		{
-      if (strcasecmp(WiFiConnections[j].SSID, ssid.c_str()) == 0)
+		if (strcasecmp(WiFiConnections[j].SSID, ssid.c_str()) == 0)
 			{
 				//Serial.println("Found: " + String(ssid));
 				WiFiConnections[j].Avialable = true;
@@ -162,55 +173,63 @@ void resolveWiFiInfo()
 	Serial.println("Using WiFi " + String(wiFiInfo.SSID));	
 }
 
-float roundUpDecimal(float value, int decimals = 1) {
-  float multiplier = powf(10.0, decimals);
-  value = roundf(value * multiplier) / multiplier;
-  return value;
+float roundUpDecimal(float value, int decimals = 1)
+{
+	float multiplier = powf(10.0, decimals);
+	value = roundf(value * multiplier) / multiplier;
+	return value;
 }
 
-float map(float x, float in_min, float in_max, float out_min, float out_max) {
+float map(float x, float in_min, float in_max, float out_min, float out_max)
+{
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-void readTemperature(){
-  tempTemp = roundUpDecimal(bme280.readTemperature());
-  Serial.println("Temperature: " + String(tempTemp));
+void readTemperature()
+{
+	tempTemp = roundUpDecimal(bme280.readTemperature());
+	Serial.println("Temperature: " + String(tempTemp));
 }
 
 void readHumidity(){
-  //tempHmd = map(bme280.readHumidity(), 20.6, 69.5, 40.0, 75.0);
-  //tempHmd = roundUpDecimal(tempHmd);
-  tempHmd = roundUpDecimal(bme280.readHumidity());
-  Serial.println("Humidity: " + String(tempHmd));
+	//tempHmd = map(bme280.readHumidity(), 20.6, 69.5, 40.0, 75.0);
+	//tempHmd = roundUpDecimal(tempHmd);
+	tempHmd = roundUpDecimal(bme280.readHumidity());
+	Serial.println("Humidity: " + String(tempHmd));
 }
 
-void readAtmosphere(){
-  tempHpa = roundUpDecimal(bme280.readPressure() / 100.0F);
-  // approx low from https://vancouver.weatherstats.ca/charts/pressure_sea-hourly.html
-  tempAlt = roundUpDecimal(bme280.readAltitude(SEALEVELPRESSURE_HPA));
-  
-  Serial.println("Pressure: " + String(tempHpa));
-  Serial.println("Altitude: " + String(tempAlt));
+void readAtmosphere()
+{
+	tempHpa = roundUpDecimal(bme280.readPressure() / 100.0F);
+	// approx low from https://vancouver.weatherstats.ca/charts/pressure_sea-hourly.html
+	tempAlt = roundUpDecimal(bme280.readAltitude(SEALEVELPRESSURE_HPA));
+
+	Serial.println("Pressure: " + String(tempHpa));
+	Serial.println("Altitude: " + String(tempAlt));
 }
 
-void readLight() {
-  tempLight = roundUpDecimal(bh1750.readLightLevel());
-  Serial.println("Light Level: " + String(tempLight));
+void readLight()
+{
+	tempLight = roundUpDecimal(bh1750.readLightLevel());
+	Serial.println("Light Level: " + String(tempLight));
 }
 
-//upload temperature humidity data to thinkspak.com
-void uploadSensorData(){
-   if(!client.connect(host, httpPort)){
-    Serial.println("connection failed");
-    return;
-  }
-  // Three values(field1 field2 field3 field4) have been set in thingspeak.com 
-  client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+tempTemp+"&field2="+tempHmd+"&field3="+tempLight+"&field4="+tempHpa+"&field5="+tempAlt+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
-  while(client.available()){
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
-  }
-  Serial.println("Updated ThingSpeak");
+//upload temperature humidity data to thinkspeak.com
+void uploadSensorData()
+{
+	if(!client.connect(host, httpPort))
+	{
+		Serial.println("Connection to thinkspeak.com failed");
+		return;
+	}
+	// Three values(field1 field2 field3 field4) have been set in thingspeak.com 
+	client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+tempTemp+"&field2="+tempHmd+"&field3="+tempLight+"&field4="+tempHpa+"&field5="+tempAlt+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+	while(client.available())
+	{
+		String line = client.readStringUntil('\r');
+		Serial.print(line);
+	}
+	Serial.println("Updated ThingSpeak");
 }
 
 
