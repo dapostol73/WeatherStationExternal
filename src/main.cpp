@@ -64,10 +64,12 @@ BH1750FVI bh1750(BH1750_DEFAULT_I2CADDR, BH1750_CONTINUOUS_HIGH_RES_MODE, BH1750
 
 //declaring prototypes
 void resolveWiFiInfo();
+void blinkLedStatus(int times, int pulse = 500);
 
 void setup() {
   Serial.begin(115200);
   delay(2000);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   //initialize Atmosphere sensor
   if (!bme280.begin(BME280_DEFAULT_I2CADDR)) {
@@ -99,12 +101,15 @@ void setup() {
   Serial.println("");
   while (!client.connect(host, httpPort)) {
     Serial.println("Connection Failed");
-  }  
+  }
+
+  delay(2000);
 }
 
 void loop() {  
   //Read sensor values base on Upload interval seconds
-  if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS){
+  if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS) {
+    blinkLedStatus(2);
     readTemperature();
     readHumidity();
     readAtmosphere();
@@ -113,9 +118,19 @@ void loop() {
   }
 
   //Upload Sensor values base on Upload interval seconds
-  if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS){
+  if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS) {
+    blinkLedStatus(4, 250);
     uploadSensorData();
     uploadTime = millis();
+  }
+}
+
+void blinkLedStatus(int times, int pulse) {
+  for (int i = 0; i < times; i++) {
+      digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on by making the voltage LOW
+      delay(pulse);            // Wait for a second
+      digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
+      delay(pulse);            // Wait for two seconds
   }
 }
 
