@@ -1,3 +1,5 @@
+#include <Arduino.h>
+#include <Strings.h>
 #include <ESP8266WiFi.h>
 
 #include <Adafruit_Sensor.h>
