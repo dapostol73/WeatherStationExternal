@@ -6,11 +6,9 @@
 #include <Adafruit_BME280.h>
 #include <BH1750FVI.h>
 
-#include "WifiInfo.h"
+#include "ApplicationSettings.h"
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
-// Pin 15 can work but DHT must be disconnected during program upload.
-
-WiFiConnection wiFiInfo("Unknown", "Invalid");
+ApplicationSettings appSettings; //change to pointer
 
 // Uncomment the type of sensor in use:
 WiFiClient client;
@@ -66,7 +64,7 @@ Adafruit_BME280 bme280;
 BH1750FVI bh1750(BH1750_DEFAULT_I2CADDR, BH1750_CONTINUOUS_HIGH_RES_MODE, BH1750_SENSITIVITY_DEFAULT, BH1750_ACCURACY_DEFAULT);
 
 //declaring prototypes
-void resolveWiFiInfo();
+void resolveAppSettings();
 void blinkLedStatus(int times, int pulse = 500);
 
 void setup()
@@ -96,8 +94,8 @@ void setup()
 	}
 
 	WiFi.mode(WIFI_STA);
-	resolveWiFiInfo();
-	WiFi.begin(wiFiInfo.SSID, wiFiInfo.Password);
+	resolveAppSettings();
+	WiFi.begin(appSettings.WifiSettings.SSID, appSettings.WifiSettings.Password);
 
 	int counter = 0;
 	while (WiFi.status() != WL_CONNECTED)
@@ -148,7 +146,7 @@ void blinkLedStatus(int times, int pulse)
 	}
 }
 
-void resolveWiFiInfo()
+void resolveAppSettings()
 {
 	int8_t numNetworks = WiFi.scanNetworks();
 	Serial.println("Number of networks found: " + String(numNetworks));
@@ -157,23 +155,25 @@ void resolveWiFiInfo()
 	{
 		String ssid = WiFi.SSID(i);
 		Serial.println(WiFi.SSID(i) + " (" + String(WiFi.RSSI(i)) + ")");
-		for (uint8_t j=0; j < WiFiConnectionsCount; j++)
+		for (uint8_t j=0; j < AppSettingsCount; j++)
 		{
-		if (strcasecmp(WiFiConnections[j].SSID, ssid.c_str()) == 0)
+			const char* appSsid = AppSettings[j].WifiSettings.SSID;
+			Serial.println("Checking: " + String(appSsid));
+			if (strcasecmp(appSsid, ssid.c_str()) == 0)
 			{
 				//Serial.println("Found: " + String(ssid));
-				WiFiConnections[j].Avialable = true;
-				WiFiConnections[j].Strength = WiFi.RSSI(i);
+				AppSettings[j].WifiSettings.Avialable = true;
+				AppSettings[j].WifiSettings.Strength = WiFi.RSSI(i);
 
-				if (WiFiConnections[j].Strength > wiFiInfo.Strength)
+				if (AppSettings[j].WifiSettings.Strength > appSettings.WifiSettings.Strength)
 				{
-					wiFiInfo = WiFiConnections[j];
+					appSettings = AppSettings[j];
 				}
 			}
 		}
 	}
 
-	Serial.println("Using WiFi " + String(wiFiInfo.SSID));	
+	Serial.println("Using WiFi " + String(appSettings.WifiSettings.SSID));	
 }
 
 float roundUpDecimal(float value, int decimals = 1)
@@ -220,13 +220,22 @@ void readLight()
 //upload temperature humidity data to thinkspeak.com
 void uploadSensorData()
 {
-	if(!client.connect(host, httpPort))
+	if(!client.connect(appSettings.ThingSpeakSettings.Host, appSettings.ThingSpeakSettings.Port))
 	{
 		Serial.println("Connection to thinkspeak.com failed");
 		return;
 	}
+
 	// Three values(field1 field2 field3 field4) have been set in thingspeak.com 
-	client.print(String("GET ") + "/update?api_key="+api_key+"&field1="+tempTemp+"&field2="+tempHmd+"&field3="+tempLight+"&field4="+tempHpa+"&field5="+tempAlt+" HTTP/1.1\r\n" +"Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+	client.print(String("GET ") + "/update?api_key=" + appSettings.ThingSpeakSettings.APIKeyWrite
+				+ "&field1=" + tempTemp
+				+ "&field2=" + tempHmd
+				+ "&field3=" + tempLight
+				+ "&field4=" + tempHpa
+				+ "&field5=" + tempAlt
+				+ " HTTP/1.1\r\n" 
+				+ "Host: " + appSettings.ThingSpeakSettings.Host + "\r\n" 
+				+ "Connection: close\r\n\r\n");
 	while(client.available())
 	{
 		String line = client.readStringUntil('\r');
