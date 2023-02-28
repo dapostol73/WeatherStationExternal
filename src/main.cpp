@@ -14,8 +14,9 @@ WiFiConnection wiFiInfo("Unknown", "Invalid");
 
 // Uncomment the type of sensor in use:
 WiFiClient client;
-const char *host = "api.thingspeak.com";                  //IP address of the thingspeak server
-const char *api_key ="EMCNAORN3ZXKCFW1";                  //Your own thingspeak api_key
+const char *host = "api.thingspeak.com";	//IP address of the thingspeak server
+const char *api_key ="EMCNAORN3ZXKCFW1";	//Your own thingspeak api_key (NorthVan)
+//const char *api_key ="97KZEPIAGEOWQ9DG";	//Your own thingspeak api_key (NorthVan)
 const int httpPort = 80;
 
 /***************************
