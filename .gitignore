@@ -36,4 +36,4 @@ google-services.json
 .temp/
 
 # App Settings
-#src/ApplicationSettings.h
+src/ApplicationSettings.h

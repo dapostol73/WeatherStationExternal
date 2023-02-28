@@ -12,10 +12,6 @@ ApplicationSettings appSettings; //change to pointer
 
 // Uncomment the type of sensor in use:
 WiFiClient client;
-const char *host = "api.thingspeak.com";	//IP address of the thingspeak server
-const char *api_key ="EMCNAORN3ZXKCFW1";	//Your own thingspeak api_key (NorthVan)
-//const char *api_key ="97KZEPIAGEOWQ9DG";	//Your own thingspeak api_key (NorthVan)
-const int httpPort = 80;
 
 /***************************
  * Begin Atmosphere Sensor Settings
@@ -106,11 +102,6 @@ void setup()
 	}
 
 	Serial.println("");
-	while (!client.connect(host, httpPort))
-	{
-		Serial.println("Connection Failed");
-	}
-
 	delay(2000);
 }
 
