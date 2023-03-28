@@ -1,3 +1,17 @@
+/*
+Result of using the 32% & 84% Humidty packs
+
+BME280 Sensors
+Sensor: 1 Low: 31.1 High: 84.6
+Sensor: 2 Low: 31.7 High: 78.0
+
+DHT22 Sensors
+Sensor: 1 Low: 35.4 High: 85.9
+Sensor: 2 Low: 34.9 High: 87.4
+
+DHT11 Sensors
+Sensor: 1 Low: 33.0 High: 89.0
+*/
 #include <Arduino.h>
 #include <Strings.h>
 #include <ESP8266WiFi.h>
@@ -66,6 +80,7 @@ void blinkLedStatus(int times, int pulse = 500);
 void setup()
 {
 	Serial.begin(115200);
+	Serial.println();
 	delay(2000);
 	pinMode(LED_BUILTIN, OUTPUT);
 
@@ -105,7 +120,16 @@ void setup()
 	delay(2000);
 }
 
-void loop() {  
+void loop()
+{
+	if (WiFi.status() != WL_CONNECTED)
+	{
+		WiFi.reconnect();
+		blinkLedStatus(10, 1000);
+		delay(10000);
+		return;
+	}
+
 	//Read sensor values base on Upload interval seconds
 	if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS)
 	{
@@ -181,14 +205,14 @@ float map(float x, float in_min, float in_max, float out_min, float out_max)
 
 void readTemperature()
 {
-	tempTemp = roundUpDecimal(bme280.readTemperature());
+	tempTemp = roundUpDecimal(bme280.readTemperature() - 1.5);
 	Serial.println("Temperature: " + String(tempTemp));
 }
 
 void readHumidity(){
-	//tempHmd = map(bme280.readHumidity(), 20.6, 69.5, 40.0, 75.0);
-	//tempHmd = roundUpDecimal(tempHmd);
-	tempHmd = roundUpDecimal(bme280.readHumidity());
+	tempHmd = map(bme280.readHumidity(), 31.1, 84.6, 32, 84.0);
+	tempHmd = roundUpDecimal(tempHmd);
+	//tempHmd = roundUpDecimal(bme280.readHumidity());
 	Serial.println("Humidity: " + String(tempHmd));
 }
 
