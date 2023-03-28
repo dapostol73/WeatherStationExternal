@@ -107,6 +107,7 @@ void setup()
 	WiFi.mode(WIFI_STA);
 	resolveAppSettings();
 	WiFi.begin(appSettings.WifiSettings.SSID, appSettings.WifiSettings.Password);
+	WiFi.setSleepMode(WIFI_NONE_SLEEP);
 
 	int counter = 0;
 	while (WiFi.status() != WL_CONNECTED)
