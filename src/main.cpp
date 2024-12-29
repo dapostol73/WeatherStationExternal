@@ -21,6 +21,7 @@ Sensor: 1 Low: 33.0 High: 89.0
 #include <BH1750FVI.h>
 
 #include "UserSettings.h"
+#include "SensorData.h"
 #include "NetworkManager.h"
 
 #ifndef SERIAL_LOGGING
@@ -44,12 +45,9 @@ WiFiClient client;
 /***************************
  * Begin Atmosphere Sensor Settings
  **************************/
+SensorData sensorData;
 const int BME280_DEFAULT_I2CADDR = 0x76;  // address:0x76
 const float SEALEVELPRESSURE_HPA = 1021.1;
-float tempTemp = 0.0; //temperature
-float tempHmd = 0.0; //humidity
-float tempHpa = 0.0; //pressure
-float tempAlt = 0.0; //altitude
 void readTemperature();
 void readHumidity();
 void readAtmosphere();
@@ -58,7 +56,6 @@ void readAtmosphere();
  * Begin Light Sensor Settings
  **************************/
 void readLight();
-float tempLight = 0.0;
 
 /***************************
  * Begin Settings
@@ -66,7 +63,6 @@ float tempLight = 0.0;
 // Setup
 long readTime = LONG_MIN; 
 long uploadTime = LONG_MIN;
-void uploadSensorData();
 const int SENSOR_INTERVAL_SECS = 15; // Sensor query every 15 seconds
 const int UPLOAD_INTERVAL_SECS = 5 * 60; // Upload every 5 minutes
 
@@ -166,7 +162,7 @@ void loop()
 	if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS)
 	{
 		blinkLedStatus(4, 250);
-		uploadSensorData();
+		netManager.uploadSensorData(&AppSettings->ThingSpeakSettings, &sensorData);
 		uploadTime = millis();
 	}
 }
@@ -196,73 +192,37 @@ float map(float x, float in_min, float in_max, float out_min, float out_max)
 
 void readTemperature()
 {
-	tempTemp = roundUpDecimal(bme280.readTemperature() - 1.5);
+	sensorData.Temperature = roundUpDecimal(bme280.readTemperature() - 1.5);
 	#ifdef SERIAL_LOGGING
-	Serial.println("Temperature: " + String(tempTemp));
+	Serial.println("Temperature: " + String(sensorData.Temperature));
 	#endif
 }
 
 void readHumidity(){
-	tempHmd = map(bme280.readHumidity(), 31.1, 84.6, 32, 84.0);
-	tempHmd = roundUpDecimal(tempHmd);
+	float reading = map(bme280.readHumidity(), 31.1, 84.6, 32, 84.0);
+	sensorData.Humidity = roundUpDecimal(reading);
 	//tempHmd = roundUpDecimal(bme280.readHumidity());
 	#ifdef SERIAL_LOGGING
-	Serial.println("Humidity: " + String(tempHmd));
+	Serial.println("Humidity: " + String(sensorData.Humidity));
 	#endif
 }
 
 void readAtmosphere()
 {
-	tempHpa = roundUpDecimal(bme280.readPressure() / 100.0F);
+	sensorData.Pressure = roundUpDecimal(bme280.readPressure() / 100.0F);
 	// approx low from https://vancouver.weatherstats.ca/charts/pressure_sea-hourly.html
-	tempAlt = roundUpDecimal(bme280.readAltitude(SEALEVELPRESSURE_HPA));
+	sensorData.Altitude = roundUpDecimal(bme280.readAltitude(SEALEVELPRESSURE_HPA));
 	#ifdef SERIAL_LOGGING
-	Serial.println("Pressure: " + String(tempHpa));
-	Serial.println("Altitude: " + String(tempAlt));
+	Serial.println("Pressure: " + String(sensorData.Pressure));
+	Serial.println("Altitude: " + String(sensorData.Altitude));
 	#endif
 }
 
 void readLight()
 {
-	tempLight = roundUpDecimal(bh1750.readLightLevel());
+	sensorData.Illuminance = roundUpDecimal(bh1750.readLightLevel());
 	#ifdef SERIAL_LOGGING
-	Serial.println("Light Level: " + String(tempLight));
+	Serial.println("Light Level: " + String(sensorData.Illuminance));
 	#endif
 }
-
-//upload temperature humidity data to thinkspeak.com
-void uploadSensorData()
-{
-	if(!client.connect(appSettings.ThingSpeakSettings.Host, appSettings.ThingSpeakSettings.Port))
-	{
-		#ifdef SERIAL_LOGGING
-		Serial.println("Connection to thinkspeak.com failed");
-		#endif
-		return;
-	}
-
-	// Three values(field1 field2 field3 field4) have been set in thingspeak.com 
-	client.print(String("GET ") + "/update?api_key=" + appSettings.ThingSpeakSettings.APIKeyWrite
-				+ "&field1=" + tempTemp
-				+ "&field2=" + tempHmd
-				+ "&field3=" + tempLight
-				+ "&field4=" + tempHpa
-				+ "&field5=" + tempAlt
-				+ " HTTP/1.1\r\n" 
-				+ "Host: " + appSettings.ThingSpeakSettings.Host + "\r\n" 
-				+ "Connection: close\r\n\r\n");
-
-	while(client.available())
-	{
-		String line = client.readStringUntil('\r');
-		#ifdef SERIAL_LOGGING
-		Serial.print(line);
-		#endif
-	}
-
-	#ifdef SERIAL_LOGGING
-	Serial.println("Updated ThingSpeak");
-	#endif
-}
-
 

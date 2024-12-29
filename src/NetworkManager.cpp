@@ -145,6 +145,40 @@ bool NetworkManager::connectWiFi(WiFiConnection wiFiConnection, uint16_t retryAt
 	return true;
 }
 
+void NetworkManager::uploadSensorData(ThingSpeakInfo* thingSpeakInfo, SensorData* sensorData)
+{
+	if(!wiFiClient.connect(thingSpeakInfo->Host, thingSpeakInfo->Port))
+	{
+		#ifdef SERIAL_LOGGING
+		Serial.println("Connection to thinkspeak.com failed");
+		#endif
+		return;
+	}
+
+	// Three values(field1 field2 field3 field4) have been set in thingspeak.com 
+	wiFiClient.print(String("GET ") + "/update?api_key=" + thingSpeakInfo->APIKeyWrite
+				+ "&field1=" + sensorData->Temperature
+				+ "&field2=" + sensorData->Humidity
+				+ "&field3=" + sensorData->Illuminance
+				+ "&field4=" + sensorData->Pressure
+				+ "&field5=" + sensorData->Altitude
+				+ " HTTP/1.1\r\n" 
+				+ "Host: " + thingSpeakInfo->Host + "\r\n" 
+				+ "Connection: close\r\n\r\n");
+
+	while(wiFiClient.available())
+	{
+		String line = wiFiClient.readStringUntil('\r');
+		#ifdef SERIAL_LOGGING
+		Serial.print(line);
+		#endif
+	}
+
+	#ifdef SERIAL_LOGGING
+	Serial.println("Updated ThingSpeak");
+	#endif
+}
+
 void NetworkManager::printWiFiInfo()
 {
 	#ifdef SERIAL_LOGGING
