@@ -21,8 +21,22 @@ Sensor: 1 Low: 33.0 High: 89.0
 #include <BH1750FVI.h>
 
 #include "UserSettings.h"
+#include "NetworkManager.h"
+
+#ifndef SERIAL_LOGGING
+// disable Serial output
+#define Serial KillDefaultSerial
+static class {
+public:
+    void begin(...) {}
+    void print(...) {}
+    void println(...) {}
+} Serial;
+#endif
+
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 ApplicationSettings appSettings; //change to pointer
+NetworkManager netManager;
 
 // Uncomment the type of sensor in use:
 WiFiClient client;
@@ -56,6 +70,9 @@ void uploadSensorData();
 const int SENSOR_INTERVAL_SECS = 15; // Sensor query every 15 seconds
 const int UPLOAD_INTERVAL_SECS = 5 * 60; // Upload every 5 minutes
 
+const uint16_t WIFI_UPDATE_SECS = 120; // wait 2 minutes to reconnect
+long wiFiTimeLastUpdate = LONG_MIN;
+
 #if defined(ESP8266)
 const int SDA_PIN = D2;
 const int SCL_PIN = D1;
@@ -74,62 +91,65 @@ Adafruit_BME280 bme280;
 BH1750FVI bh1750(BH1750_DEFAULT_I2CADDR, BH1750_CONTINUOUS_HIGH_RES_MODE, BH1750_SENSITIVITY_DEFAULT, BH1750_ACCURACY_DEFAULT);
 
 //declaring prototypes
-void resolveAppSettings();
 void blinkLedStatus(int times, int pulse = 500);
 
 void setup()
 {
 	Serial.begin(115200);
-	Serial.println();
-	delay(2000);
 	pinMode(LED_BUILTIN, OUTPUT);
 
 	//initialize Atmosphere sensor
 	if (!bme280.begin(BME280_DEFAULT_I2CADDR))
 	{
+		#ifdef SERIAL_LOGGING
 		Serial.println("Could not find BME280 sensor at 0x76");
+		#endif
 	}
 	else
 	{
+		#ifdef SERIAL_LOGGING
 		Serial.println("Found BMP280 sensor at 0x76");
+		#endif
 	}
 
 	//initialize Atmosphere sensor
 	if (!bh1750.begin(SDA_PIN, SCL_PIN))
 	{
+		#ifdef SERIAL_LOGGING
 		Serial.println("Could not find BH1750 sensor at default address");
+		#endif
 	}
 	else
 	{
+		#ifdef SERIAL_LOGGING
 		Serial.println("Fuond BH1750 sensor at default address");
+		#endif
 	}
 
-	WiFi.mode(WIFI_STA);
-	resolveAppSettings();
-	WiFi.begin(appSettings.WifiSettings.SSID, appSettings.WifiSettings.Password);
-	WiFi.setSleepMode(WIFI_NONE_SLEEP);
-
-	int counter = 0;
-	while (WiFi.status() != WL_CONNECTED)
-	{
-		delay(500);
-		Serial.print(".");
-		counter++;
-	}
-
-	Serial.println("");
+	netManager.init();
+    uint8_t appSetID = netManager.scanSettingsID(AppSettings, AppSettingsCount);
+    appSettings = AppSettings[appSetID];
+    netManager.connectWiFi(appSettings.WifiSettings);
+	netManager.printWiFiInfo();
+    
 	delay(2000);
 }
 
 void loop()
 {
-	if (WiFi.status() != WL_CONNECTED)
-	{
-		WiFi.reconnect();
-		blinkLedStatus(10, 1000);
-		delay(10000);
-		return;
-	}
+    if (!netManager.isConnected() && millis() - wiFiTimeLastUpdate > (1000L*WIFI_UPDATE_SECS))
+    {
+        #ifdef SERIAL_LOGGING
+        Serial.println("Attempting to connect to WiFi");
+        #endif
+        if (!netManager.connectWiFi(appSettings.WifiSettings));
+        {
+            //If a connection failed, rescan for new settings.
+            uint8_t appSetID = netManager.scanSettingsID(AppSettings, AppSettingsCount);
+            appSettings = AppSettings[appSetID];
+        }
+        wiFiTimeLastUpdate = millis();
+    }
 
 	//Read sensor values base on Upload interval seconds
 	if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS)
@@ -162,36 +182,6 @@ void blinkLedStatus(int times, int pulse)
 	}
 }
 
-void resolveAppSettings()
-{
-	int8_t numNetworks = WiFi.scanNetworks();
-	Serial.println("Number of networks found: " + String(numNetworks));
-
-	for (uint8_t i=0; i<numNetworks; i++)
-	{
-		String ssid = WiFi.SSID(i);
-		Serial.println(WiFi.SSID(i) + " (" + String(WiFi.RSSI(i)) + ")");
-		for (uint8_t j=0; j < AppSettingsCount; j++)
-		{
-			const char* appSsid = AppSettings[j].WifiSettings.SSID;
-			Serial.println("Checking: " + String(appSsid));
-			if (strcasecmp(appSsid, ssid.c_str()) == 0)
-			{
-				//Serial.println("Found: " + String(ssid));
-				AppSettings[j].WifiSettings.Avialable = true;
-				AppSettings[j].WifiSettings.Strength = WiFi.RSSI(i);
-
-				if (AppSettings[j].WifiSettings.Strength > appSettings.WifiSettings.Strength)
-				{
-					appSettings = AppSettings[j];
-				}
-			}
-		}
-	}
-
-	Serial.println("Using WiFi " + String(appSettings.WifiSettings.SSID));	
-}
-
 float roundUpDecimal(float value, int decimals = 1)
 {
 	float multiplier = powf(10.0, decimals);
@@ -207,14 +197,18 @@ float map(float x, float in_min, float in_max, float out_min, float out_max)
 void readTemperature()
 {
 	tempTemp = roundUpDecimal(bme280.readTemperature() - 1.5);
+	#ifdef SERIAL_LOGGING
 	Serial.println("Temperature: " + String(tempTemp));
+	#endif
 }
 
 void readHumidity(){
 	tempHmd = map(bme280.readHumidity(), 31.1, 84.6, 32, 84.0);
 	tempHmd = roundUpDecimal(tempHmd);
 	//tempHmd = roundUpDecimal(bme280.readHumidity());
+	#ifdef SERIAL_LOGGING
 	Serial.println("Humidity: " + String(tempHmd));
+	#endif
 }
 
 void readAtmosphere()
@@ -222,15 +216,18 @@ void readAtmosphere()
 	tempHpa = roundUpDecimal(bme280.readPressure() / 100.0F);
 	// approx low from https://vancouver.weatherstats.ca/charts/pressure_sea-hourly.html
 	tempAlt = roundUpDecimal(bme280.readAltitude(SEALEVELPRESSURE_HPA));
-
+	#ifdef SERIAL_LOGGING
 	Serial.println("Pressure: " + String(tempHpa));
 	Serial.println("Altitude: " + String(tempAlt));
+	#endif
 }
 
 void readLight()
 {
 	tempLight = roundUpDecimal(bh1750.readLightLevel());
+	#ifdef SERIAL_LOGGING
 	Serial.println("Light Level: " + String(tempLight));
+	#endif
 }
 
 //upload temperature humidity data to thinkspeak.com
@@ -238,7 +235,9 @@ void uploadSensorData()
 {
 	if(!client.connect(appSettings.ThingSpeakSettings.Host, appSettings.ThingSpeakSettings.Port))
 	{
+		#ifdef SERIAL_LOGGING
 		Serial.println("Connection to thinkspeak.com failed");
+		#endif
 		return;
 	}
 
@@ -252,12 +251,18 @@ void uploadSensorData()
 				+ " HTTP/1.1\r\n" 
 				+ "Host: " + appSettings.ThingSpeakSettings.Host + "\r\n" 
 				+ "Connection: close\r\n\r\n");
+
 	while(client.available())
 	{
 		String line = client.readStringUntil('\r');
+		#ifdef SERIAL_LOGGING
 		Serial.print(line);
+		#endif
 	}
+
+	#ifdef SERIAL_LOGGING
 	Serial.println("Updated ThingSpeak");
+	#endif
 }
 
 
