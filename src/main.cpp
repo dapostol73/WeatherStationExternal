@@ -162,7 +162,7 @@ void loop()
 	if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS)
 	{
 		blinkLedStatus(4, 250);
-		netManager.uploadSensorData(&AppSettings->ThingSpeakSettings, &sensorData);
+		netManager.uploadSensorData(&appSettings.ThingSpeakSettings, &sensorData);
 		uploadTime = millis();
 	}
 }
