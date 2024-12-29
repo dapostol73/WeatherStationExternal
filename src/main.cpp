@@ -20,7 +20,7 @@ Sensor: 1 Low: 33.0 High: 89.0
 #include <Adafruit_BME280.h>
 #include <BH1750FVI.h>
 
-#include "ApplicationSettings.h"
+#include "UserSettings.h"
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 ApplicationSettings appSettings; //change to pointer
 
