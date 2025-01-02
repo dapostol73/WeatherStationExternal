@@ -138,7 +138,7 @@ void loop()
         #ifdef SERIAL_LOGGING
         Serial.println("Attempting to connect to WiFi");
         #endif
-        if (!netManager.connectWiFi(appSettings.WifiSettings));
+        if (!netManager.connectWiFi(appSettings.WifiSettings))
         {
             //If a connection failed, rescan for new settings.
             uint8_t appSetID = netManager.scanSettingsID(AppSettings, AppSettingsCount);
