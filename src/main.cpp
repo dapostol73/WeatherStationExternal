@@ -66,9 +66,6 @@ long uploadTime = LONG_MIN;
 const int SENSOR_INTERVAL_SECS = 15; // Sensor query every 15 seconds
 const int UPLOAD_INTERVAL_SECS = 5 * 60; // Upload every 5 minutes
 
-const uint16_t WIFI_UPDATE_SECS = 120; // wait 2 minutes to reconnect
-long wiFiTimeLastUpdate = LONG_MIN;
-
 #if defined(ESP8266)
 const int SDA_PIN = D2;
 const int SCL_PIN = D1;
@@ -133,20 +130,6 @@ void setup()
 
 void loop()
 {
-    if (!netManager.isConnected() && millis() - wiFiTimeLastUpdate > (1000L*WIFI_UPDATE_SECS))
-    {
-        #ifdef SERIAL_LOGGING
-        Serial.println("Attempting to connect to WiFi");
-        #endif
-        if (!netManager.connectWiFi(appSettings.WifiSettings))
-        {
-            //If a connection failed, rescan for new settings.
-            uint8_t appSetID = netManager.scanSettingsID(AppSettings, AppSettingsCount);
-            appSettings = AppSettings[appSetID];
-        }
-        wiFiTimeLastUpdate = millis();
-    }
-
 	//Read sensor values base on Upload interval seconds
 	if(millis() - readTime > 1000L*SENSOR_INTERVAL_SECS)
 	{
@@ -159,11 +142,15 @@ void loop()
 	}
 
 	//Upload Sensor values base on Upload interval seconds
-	if(millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS)
+	if(netManager.isConnected() && millis() - uploadTime > 1000L*UPLOAD_INTERVAL_SECS)
 	{
 		blinkLedStatus(4, 250);
 		netManager.uploadSensorData(&appSettings.ThingSpeakSettings, &sensorData);
 		uploadTime = millis();
+	}
+	else
+	{
+		blinkLedStatus(10, 100);
 	}
 }
 

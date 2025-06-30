@@ -15,7 +15,7 @@ bool NetworkManager::init()
 	WiFi.mode(WIFI_STA);
 	delay(1000);
 	WiFi.disconnect();
-	WiFi.setAutoConnect(true);
+	WiFi.setAutoReconnect(true);
 
 	if (WiFi.status() == WL_NO_SHIELD)
 	{
@@ -88,10 +88,11 @@ int NetworkManager::scanSettingsID(ApplicationSettings* appSettings, uint16_t nu
 	return id;
 }
 
-/// @brief 
-/// @param retryAttempts number of reconnect attempts if failed
-/// @param retryDelay in seconds
-/// @return 
+/// @brief Used for connecting to WiFi first time, by default will try 15 times every 20 seonds
+/// @param wiFiConnection connection to use
+/// @param retryAttempts attempts to connect 15
+/// @param retryDelay how long to delay between attempts
+/// @return true if connection was successful
 bool NetworkManager::connectWiFi(WiFiConnection wiFiConnection, uint16_t retryAttempts, uint16_t retryDelay)
 {    
 	if (!wiFiConnection.Avialable)
